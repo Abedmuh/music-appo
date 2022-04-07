@@ -40,10 +40,10 @@ class PlaylistService {
     return result.rows;
   }
 
-  async deletePlaylistById(id) {
+  async deletePlaylistById(playlistId) {
     const query = {
       text: 'DELETE FROM playlist WHERE id = $1 RETURNING id',
-      values: [id],
+      values: [playlistId],
     };
 
     const result = await this._pool.query(query);
@@ -85,9 +85,18 @@ class PlaylistService {
       values: [playlistId],
     };
     const result = await this._pool.query(query);
-    console.log(typeof result.rows.map(mapDBToModelSong));
 
     return result.rows.map(mapDBToModelSong);
+  }
+
+  async getPlaylistbyId(playlistId) {
+    const query = {
+      text: `SELECT playlist.* FROM playlist
+      WHERE id = $1`,
+      values: [playlistId],
+    };
+    const result = await this._pool.query(query);
+    return result.rows[0];
   }
 
   async deleteSongFromPlaylist(playlistId, songId) {
@@ -103,17 +112,26 @@ class PlaylistService {
     }
   }
 
-  async verifyPlaylistOwner(id, owner) {
+  async getUsers(credentialId) {
+    const query = {
+      text: 'SELECT users.* FROM users WHERE id LIKE $1',
+      values: [credentialId],
+    };
+    const result = await this._pool.query(query);
+    return result.rows[0];
+  }
+
+  async verifyPlaylistOwner(playlistId, owner) {
     const query = {
       text: 'SELECT * FROM playlist WHERE id = $1',
-      values: [id],
+      values: [playlistId],
     };
     const result = await this._pool.query(query);
     if (!result.rows.length) {
       throw new NotFoundError('Playlist tidak ditemukan');
     }
-    const note = result.rows[0];
-    if (note.owner !== owner) {
+    const playlist = result.rows[0];
+    if (playlist.owner !== owner) {
       throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
     }
   }
@@ -131,15 +149,6 @@ class PlaylistService {
         throw error;
       }
     }
-  }
-
-  async getUsersByUsername(username) {
-    const query = {
-      text: 'SELECT id, username, fullname FROM users WHERE username LIKE $1',
-      values: [`%${username}%`],
-    };
-    const result = await this._pool.query(query);
-    return result.rows;
   }
 }
 

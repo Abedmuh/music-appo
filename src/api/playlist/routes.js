@@ -10,7 +10,7 @@ const routes = (handler) => [
   {
     method: 'GET',
     path: '/playlists',
-    handler: handler.getPlaylistHandler,
+    handler: handler.getAllPlaylistHandler,
     options: {
       auth: 'music_jwt',
     },
@@ -46,11 +46,6 @@ const routes = (handler) => [
     options: {
       auth: 'music_jwt',
     },
-  },
-  {
-    method: 'GET',
-    path: '/users',
-    handler: handler.getUsersByUsernameHandler,
   },
 ];
 
