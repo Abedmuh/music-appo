@@ -1,6 +1,7 @@
 const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
 const { mapDBToModelSong } = require('../../utils/indexSong');
+const { mapDBToModelPlaylist } = require('../../utils/indexPlaylist');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
 const AuthorizationError = require('../../exceptions/AuthorizationError');
@@ -37,7 +38,7 @@ class PlaylistService {
       values: [owner],
     };
     const result = await this._pool.query(query);
-    return result.rows;
+    return result.rows.map(mapDBToModelPlaylist);
   }
 
   async deletePlaylistById(playlistId) {

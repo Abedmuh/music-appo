@@ -55,11 +55,11 @@ class PlaylistHandler {
 
   async getAllPlaylistHandler(request) {
     const { id: credentialId } = request.auth.credentials;
-    const playlists = await this._service.getPlaylist(credentialId);
+    const playlist = await this._service.getPlaylist(credentialId);
     return {
       status: 'success',
       data: {
-        playlists,
+        playlists: playlist,
       },
     };
   }

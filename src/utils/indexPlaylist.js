@@ -7,7 +7,7 @@ const mapDBToModelPlaylist = ({
   id,
   name,
   year,
-  owner,
+  username: owner,
 });
 
 module.exports = { mapDBToModelPlaylist };
