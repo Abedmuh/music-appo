@@ -29,6 +29,7 @@ class PlaylistService {
     return result.rows[0].id;
   }
 
+  // get playlist
   async getPlaylist(owner) {
     const query = {
       text: `SELECT playlist.* FROM playlist
@@ -77,6 +78,7 @@ class PlaylistService {
     }
   }
 
+  // get playlist
   async getSongsFromPlaylist(playlistId) {
     const query = {
       text: `SELECT songs.*
@@ -100,6 +102,16 @@ class PlaylistService {
     return result.rows[0];
   }
 
+  async getUsers(credentialId) {
+    const query = {
+      text: 'SELECT users.* FROM users WHERE id LIKE $1',
+      values: [credentialId],
+    };
+    const result = await this._pool.query(query);
+    return result.rows[0];
+  }
+  // end get playlist
+
   async deleteSongFromPlaylist(playlistId, songId) {
     const query = {
       text: 'DELETE FROM songinplaylist WHERE playlist_id = $1 AND song_id = $2 RETURNING id',
@@ -111,15 +123,6 @@ class PlaylistService {
     if (!result.rows.length) {
       throw new InvariantError('Lagu gagal dihapus');
     }
-  }
-
-  async getUsers(credentialId) {
-    const query = {
-      text: 'SELECT users.* FROM users WHERE id LIKE $1',
-      values: [credentialId],
-    };
-    const result = await this._pool.query(query);
-    return result.rows[0];
   }
 
   async verifyPlaylistOwner(playlistId, owner) {
