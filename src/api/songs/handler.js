@@ -1,32 +1,33 @@
 const ClientError = require('../../exceptions/ClientError');
 
-class AlbumsHandler {
+class SongsHandler {
   constructor(service, validator) {
     this._service = service;
     this._validator = validator;
 
-    // album
-
-    this.postAlbumHandler = this.postAlbumHandler.bind(this);
-    this.getAlbumsHandler = this.getAlbumsHandler.bind(this);
-    this.getAlbumByIdHandler = this.getAlbumByIdHandler.bind(this);
-    this.putAlbumByIdHandler = this.putAlbumByIdHandler.bind(this);
-    this.deleteAlbbumByIdHandler = this.deleteAlbbumByIdHandler.bind(this);
+    this.postSongsHandler = this.postSongsHandler.bind(this);
+    this.getSongsHandler = this.getSongsHandler.bind(this);
+    this.getSongsByIdHandler = this.getSongsByIdHandler.bind(this);
+    this.putSongsByIdHandler = this.putSongsByIdHandler.bind(this);
+    this.deleteSongsByIdHandler = this.deleteSongsByIdHandler.bind(this);
   }
-  // album
 
-  async postAlbumHandler(request, h) {
+  async postSongsHandler(request, h) {
     try {
-      this._validator.validateAlbumsPayload(request.payload);
-      const { name, year } = request.payload;
+      this._validator.validateSongsPayload(request.payload);
+      const {
+        title, year, performer, genre, duration, albumId,
+      } = request.payload;
 
-      const albumId = await this._service.addAlbum({ name, year });
+      const songId = await this._service.addSongs({
+        title, year, performer, genre, duration, albumId,
+      });
 
       const response = h.response({
         status: 'success',
-        message: 'album berhasil ditambahkan',
+        message: 'Lagu berhasil ditambahkan',
         data: {
-          albumId,
+          songId,
         },
       });
       response.code(201);
@@ -52,24 +53,29 @@ class AlbumsHandler {
     }
   }
 
-  async getAlbumsHandler() {
-    const album = await this._service.getAlbums();
+  async getSongsHandler() {
+    const songs = await this._service.getSongs();
     return {
       status: 'success',
       data: {
-        album,
+        songs: songs.map((x) => ({
+          id: x.id,
+          title: x.title,
+          performer: x.performer,
+        })),
       },
     };
   }
 
-  async getAlbumByIdHandler(request, h) {
+  async getSongsByIdHandler(request, h) {
     try {
       const { id } = request.params;
-      const albums = await this._service.getAlbumById(id);
+      const songs = await this._service.getSongById(id);
+      console.log(typeof songs);
       return {
         status: 'success',
         data: {
-          album: albums,
+          song: songs,
         },
       };
     } catch (error) {
@@ -93,16 +99,16 @@ class AlbumsHandler {
     }
   }
 
-  async putAlbumByIdHandler(request, h) {
+  async putSongsByIdHandler(request, h) {
     try {
-      this._validator.validateAlbumsPayload(request.payload);
+      this._validator.validateSongsPayload(request.payload);
       const { id } = request.params;
 
-      await this._service.editAlbumById(id, request.payload);
+      await this._service.editSongById(id, request.payload);
 
       return {
         status: 'success',
-        message: 'album berhasil diperbarui',
+        message: 'Catatan berhasil diperbarui',
       };
     } catch (error) {
       if (error instanceof ClientError) {
@@ -125,11 +131,10 @@ class AlbumsHandler {
     }
   }
 
-  async deleteAlbbumByIdHandler(request, h) {
+  async deleteSongsByIdHandler(request, h) {
     try {
       const { id } = request.params;
-      await this._service.deleteAlbumById(id);
-
+      await this._service.deleteSongById(id);
       return {
         status: 'success',
         message: 'Catatan berhasil dihapus',
@@ -156,4 +161,4 @@ class AlbumsHandler {
   }
 }
 
-module.exports = AlbumsHandler;
+module.exports = SongsHandler;
