@@ -1,7 +1,3 @@
-// Berkas NotesService.js bertanggung jawab untuk mengelola resource notes
-// yang disimpan pada memory (array)
-// Hapi plugin notes ini akan bertanggung jawab untuk menangani
-// setiap permintaan yang mengarah ke url /notes
 const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
 const { mapDBToModelSong } = require('../../utils/indexSong');
@@ -13,8 +9,6 @@ class AlbumsService {
   constructor() {
     this._pool = new Pool();
   }
-
-  // album
 
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
@@ -59,6 +53,22 @@ class AlbumsService {
     const query = {
       text: 'UPDATE album SET name = $1, year = $2, updated_at = $3 WHERE id = $4 RETURNING id',
       values: [name, year, updatedAt, id],
+    };
+
+    const result = await this._pool.query(query);
+
+    if (!result.rows.length) {
+      throw new NotFoundError('Gagal memperbarui album. Id tidak ditemukan');
+    }
+  }
+
+  async editAlbumCover(id, address) {
+    const updatedAt = new Date().toISOString();
+    console.log(updatedAt);
+    console.log(address);
+    const query = {
+      text: 'UPDATE album SET updated_at = $1, address = $2 WHERE id = $3 RETURNING id',
+      values: [updatedAt, address, id],
     };
 
     const result = await this._pool.query(query);

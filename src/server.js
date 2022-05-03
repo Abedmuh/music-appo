@@ -2,11 +2,13 @@ require('dotenv').config();
 
 const Hapi = require('@hapi/hapi');
 const Jwt = require('@hapi/jwt');
+const path = require('path');
+const Inert = require('@hapi/inert');
 
 // albums
 const albums = require('./api/albums');
-const PostgretService = require('./service/postgres/AlbumsService');
-const PostgresValidator = require('./validator/postgres');
+const AlbumService = require('./service/postgres/AlbumsService');
+const AlbumValidator = require('./validator/album');
 
 // users
 const users = require('./api/users');
@@ -39,13 +41,19 @@ const _exports = require('./api/exports');
 const ProducerService = require('./service/postgres/rabbitmq/ProducerService');
 const ExportsValidator = require('./validator/exports');
 
+// uploads
+const uploads = require('./api/uploads');
+const StorageService = require('./service/postgres/storage/StorageService');
+const UploadsValidator = require('./validator/uploads');
+
 const init = async () => {
   const collaborationsService = new CollaborationsService();
-  const postgresService = new PostgretService();
+  const albumService = new AlbumService();
   const usersService = new UsersService();
   const playlistService = new PlaylistService(collaborationsService);
   const authenticationsService = new AuthenticationsService();
   const songService = new SongsService();
+  const storageService = new StorageService(path.resolve(__dirname, 'api/uploads/file/images'));
 
   const server = Hapi.server({
     port: process.env.PORT,
@@ -60,6 +68,9 @@ const init = async () => {
   await server.register([
     {
       plugin: Jwt,
+    },
+    {
+      plugin: Inert,
     },
   ]);
 
@@ -83,8 +94,8 @@ const init = async () => {
     {
       plugin: albums,
       options: {
-        service: postgresService,
-        validator: PostgresValidator,
+        service: albumService,
+        validator: AlbumValidator,
       },
     },
     {
@@ -131,6 +142,14 @@ const init = async () => {
         service: ProducerService,
         validator: ExportsValidator,
         playlistService,
+      },
+    },
+    {
+      plugin: uploads,
+      options: {
+        storageService,
+        albumService,
+        validator: UploadsValidator,
       },
     },
   ]);
