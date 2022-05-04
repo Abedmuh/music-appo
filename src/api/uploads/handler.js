@@ -18,11 +18,12 @@ class UploadsHandler {
       const filename = await this._storageService.writeFile(cover, cover.hapi);
       const address = `http://${process.env.HOST}:${process.env.PORT}/upload/images/${filename}`;
       await this._albumService.editAlbumCover(id, address);
+      console.log(typeof address);
 
       const response = h.response({
         status: 'success',
         message: {
-          fileAddress: address,
+          address,
         },
       });
       response.code(201);
