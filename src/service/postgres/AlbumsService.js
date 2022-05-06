@@ -3,10 +3,12 @@ const { Pool } = require('pg');
 const { mapDBToModelAlbum } = require('../../utils/indexAlbum');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
+const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class AlbumsService {
-  constructor() {
+  constructor(cacheService) {
     this._pool = new Pool();
+    this._cacheService = cacheService;
   }
 
   async addAlbum({ name, year }) {
@@ -85,6 +87,82 @@ class AlbumsService {
 
     if (!result.rows.length) {
       throw new NotFoundError('album gagal dihapus. Id tidak ditemukan');
+    }
+  }
+
+  async postLike(name, albumId) {
+    const id = `like-${nanoid(16)}`;
+
+    const checkQuery = {
+      text: 'SELECT album_id FROM like WHERE id = $1',
+      values: [albumId],
+    };
+
+    const checkResult = await this._pool.query(checkQuery);
+
+    let likeMech;
+    if (!checkResult.rows.length) {
+      likeMech = {
+        text: 'INSERT INTO like VALUES($1, $2, $3) RETURNING id',
+        values: [id, name, albumId],
+      };
+    }
+    if (checkResult.rows.length) {
+      likeMech = {
+        text: 'DELETE FROM like WHERE album_id = $1 RETURNING id',
+        values: [albumId],
+      };
+    }
+
+    const result = await this._pool.query(likeMech);
+
+    if (!result.rows[0].id) {
+      throw new InvariantError('like gagal ditambahkan');
+    }
+    if (result.rows[0].id) {
+      throw new InvariantError('like berhasil ditambahkan');
+    }
+
+    return result.rows[0].id;
+  }
+
+  async getLike(id) {
+    try {
+      const result = await this._cacheService.get(`like:${id}`);
+      return JSON.parse(result);
+    } catch (error) {
+      const query = {
+        text: 'SELECT * FROM like WHERE id = $1',
+        values: [id],
+      };
+
+      const result = await this._pool.query(query);
+
+      if (!result.rows[0].id) {
+        throw new InvariantError('like gagal ditambahkan');
+      }
+      return result.rows[0].id;
+    }
+  }
+
+  async verifyAlbumAccess(albumId, owner) {
+    try {
+      const query = {
+        text: 'SELECT * FROM album WHERE id = $1',
+        values: [albumId],
+      };
+      const result = await this._pool.query(query);
+      if (!result.rows.length) {
+        throw new NotFoundError('Album tidak ditemukan');
+      }
+      const album = result.rows[0];
+      if (album.owner !== owner) {
+        throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+      }
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
     }
   }
 }
