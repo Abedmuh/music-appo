@@ -39,6 +39,12 @@ const routes = (handler) => [
     method: 'GET',
     path: '/albums/{id}/likes',
     handler: handler.getLikeAlbumHandler,
+    options: {
+      cache: {
+        expiresIn: 3000 * 1000,
+        privacy: 'private',
+      },
+    },
   },
 ];
 

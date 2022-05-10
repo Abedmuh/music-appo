@@ -156,12 +156,11 @@ class AlbumsHandler {
 
   async postLikeAlbumHandler(request, h) {
     try {
-      const { albumId } = request.params;
+      const { id } = request.params;
       const { id: credentialId } = request.auth.credentials;
 
-      await this._service.verifyAlbumAccess(albumId, credentialId);
-
-      await this._service.postLike(albumId, credentialId);
+      await this._service.verifyAlbumAccess(id, credentialId);
+      await this._service.postLike(credentialId, id);
 
       const response = h.response({
         status: 'success',
@@ -192,19 +191,19 @@ class AlbumsHandler {
 
   async getLikeAlbumHandler(request, h) {
     try {
-      this._validator.validateAlbumsPayload(request.payload);
-      const { name, year } = request.payload;
+      const { id } = request.params;
 
-      const albumId = await this._service.addAlbum({ name, year });
+      const likes = await this._service.getLike(id);
 
       const response = h.response({
         status: 'success',
-        message: 'album berhasil ditambahkan',
+        message: 'like album berhasil didapatkan',
         data: {
-          albumId,
+          likes,
         },
       });
-      response.code(201);
+      response.code(200);
+      response.header('X-Data-Source', 'cache');
       return response;
     } catch (error) {
       if (error instanceof ClientError) {

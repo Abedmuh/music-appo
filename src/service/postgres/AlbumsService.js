@@ -90,38 +90,33 @@ class AlbumsService {
     }
   }
 
-  async postLike(name, albumId) {
-    const id = `like-${nanoid(16)}`;
-
+  async postLike(name, id) {
+    const idLike = `likecount-${nanoid(16)}`;
     const checkQuery = {
-      text: 'SELECT album_id FROM like WHERE id = $1',
-      values: [albumId],
+      text: 'SELECT * FROM likecount WHERE user_id = $1 AND album_id = $2',
+      values: [name, id],
     };
 
     const checkResult = await this._pool.query(checkQuery);
+    console.log(checkResult.rows[0]);
 
     let likeMech;
     if (!checkResult.rows.length) {
       likeMech = {
-        text: 'INSERT INTO like VALUES($1, $2, $3) RETURNING id',
-        values: [id, name, albumId],
+        text: 'INSERT INTO likecount VALUES($1, $2, $3) RETURNING id',
+        values: [idLike, name, id],
       };
     }
     if (checkResult.rows.length) {
       likeMech = {
-        text: 'DELETE FROM like WHERE album_id = $1 RETURNING id',
-        values: [albumId],
+        text: 'DELETE FROM likecount WHERE user_id = $1 RETURNING id',
+        values: [name],
       };
     }
 
     const result = await this._pool.query(likeMech);
-
-    if (!result.rows[0].id) {
-      throw new InvariantError('like gagal ditambahkan');
-    }
-    if (result.rows[0].id) {
-      throw new InvariantError('like berhasil ditambahkan');
-    }
+    console.log(result.rows[0]);
+    await this._cacheService.delete(`like:${id}`);
 
     return result.rows[0].id;
   }
@@ -129,19 +124,22 @@ class AlbumsService {
   async getLike(id) {
     try {
       const result = await this._cacheService.get(`like:${id}`);
-      return JSON.parse(result);
+      return JSON.parseInt(result);
     } catch (error) {
       const query = {
-        text: 'SELECT * FROM like WHERE id = $1',
+        text: 'SELECT COUNT(id) FROM likecount WHERE album_id = $1',
         values: [id],
       };
 
       const result = await this._pool.query(query);
+      console.log(result.rows[0].count);
 
-      if (!result.rows[0].id) {
-        throw new InvariantError('like gagal ditambahkan');
+      if (!result) {
+        throw new InvariantError('like gagal didapatkan');
       }
-      return result.rows[0].id;
+
+      await this._cacheService.set(`like:${id}`, JSON.stringify(result.rows[0].count));
+      return parseInt(result.rows[0].count);
     }
   }
 
