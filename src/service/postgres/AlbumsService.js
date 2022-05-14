@@ -26,6 +26,7 @@ class AlbumsService {
     if (!result.rows[0].id) {
       throw new InvariantError('album gagal ditambahkan');
     }
+    await this._cacheService.delete(`album:${id}`);
 
     return result.rows[0].id;
   }
@@ -36,17 +37,23 @@ class AlbumsService {
   }
 
   async getAlbumById(id) {
-    const query = {
-      text: 'SELECT * FROM album WHERE id = $1',
-      values: [id],
-    };
-    const result = await this._pool.query(query);
+    try {
+      const result = await this._cacheService.get(`album:${id}`);
+      return JSON.parse(result);
+    } catch (error) {
+      const query = {
+        text: 'SELECT * FROM album WHERE id = $1',
+        values: [id],
+      };
+      const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
-      throw new NotFoundError('album tidak ditemukan');
+      if (!result.rows.length) {
+        throw new NotFoundError('album tidak ditemukan');
+      }
+      await this._cacheService.set(`album:${id}`, JSON.stringify(result.rows.map(mapDBToModelAlbum)[0]));
+
+      return result.rows.map(mapDBToModelAlbum)[0];
     }
-
-    return result.rows.map(mapDBToModelAlbum)[0];
   }
 
   async editAlbumById(id, { name, year }) {
@@ -61,6 +68,7 @@ class AlbumsService {
     if (!result.rows.length) {
       throw new NotFoundError('Gagal memperbarui album. Id tidak ditemukan');
     }
+    await this._cacheService.delete(`album:${id}`);
   }
 
   async editAlbumCover(id, cover) {
@@ -75,6 +83,7 @@ class AlbumsService {
     if (!result.rows.length) {
       throw new NotFoundError('Gagal memperbarui album. Id tidak ditemukan');
     }
+    await this._cacheService.delete(`album:${id}`);
   }
 
   async deleteAlbumById(id) {
@@ -88,6 +97,7 @@ class AlbumsService {
     if (!result.rows.length) {
       throw new NotFoundError('album gagal dihapus. Id tidak ditemukan');
     }
+    await this._cacheService.delete(`album:${id}`);
   }
 
   async postLike(name, id) {
@@ -115,7 +125,6 @@ class AlbumsService {
     }
 
     const result = await this._pool.query(likeMech);
-    console.log(result.rows[0]);
     await this._cacheService.delete(`like:${id}`);
 
     return result.rows[0].id;
