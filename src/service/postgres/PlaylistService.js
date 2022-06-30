@@ -60,11 +60,9 @@ class PlaylistService {
       text: 'SELECT id FROM songs WHERE id = $1',
       values: [songId],
     };
-
     const resultsong = await this._pool.query(songquery);
-
-    if (!resultsong.rows.length) {
-      throw new NotFoundError('lagu tidak ditemukan');
+    if (!resultsong.rows[0]) {
+      throw new NotFoundError('Lagu tak ditemukan');
     }
     const query = {
       text: 'INSERT INTO songinplaylist (playlist_id, song_id) VALUES($1, $2) RETURNING id',

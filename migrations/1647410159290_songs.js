@@ -1,6 +1,5 @@
 exports.shorthands = undefined;
 
-// membuat tabel notes menggunakan pgm (pg-node-migrate)
 exports.up = (pgm) => {
   pgm.createTable('songs', {
     id: {

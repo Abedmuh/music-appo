@@ -1,20 +1,15 @@
-// Berkas NotesService.js bertanggung jawab untuk mengelola resource notes
-// yang disimpan pada memory (array)
-// Hapi plugin notes ini akan bertanggung jawab untuk menangani
-// setiap permintaan yang mengarah ke url /notes
 const { nanoid } = require('nanoid');
 const { Pool } = require('pg');
-const { mapDBToModelSong } = require('../../utils/indexSong');
 const { mapDBToModelAlbum } = require('../../utils/indexAlbum');
 const InvariantError = require('../../exceptions/InvariantError');
 const NotFoundError = require('../../exceptions/NotFoundError');
+const AuthorizationError = require('../../exceptions/AuthorizationError');
 
 class AlbumsService {
-  constructor() {
+  constructor(cacheService) {
     this._pool = new Pool();
+    this._cacheService = cacheService;
   }
-
-  // album
 
   async addAlbum({ name, year }) {
     const id = `album-${nanoid(16)}`;
@@ -31,6 +26,7 @@ class AlbumsService {
     if (!result.rows[0].id) {
       throw new InvariantError('album gagal ditambahkan');
     }
+    await this._cacheService.delete(`album:${id}`);
 
     return result.rows[0].id;
   }
@@ -41,17 +37,23 @@ class AlbumsService {
   }
 
   async getAlbumById(id) {
-    const query = {
-      text: 'SELECT * FROM album WHERE id = $1',
-      values: [id],
-    };
-    const result = await this._pool.query(query);
+    try {
+      const result = await this._cacheService.get(`album:${id}`);
+      return JSON.parse(result);
+    } catch (error) {
+      const query = {
+        text: 'SELECT * FROM album WHERE id = $1',
+        values: [id],
+      };
+      const result = await this._pool.query(query);
 
-    if (!result.rows.length) {
-      throw new NotFoundError('album tidak ditemukan');
+      if (!result.rows.length) {
+        throw new NotFoundError('album tidak ditemukan');
+      }
+      await this._cacheService.set(`album:${id}`, JSON.stringify(result.rows.map(mapDBToModelAlbum)[0]));
+
+      return result.rows.map(mapDBToModelAlbum)[0];
     }
-
-    return result.rows.map(mapDBToModelAlbum)[0];
   }
 
   async editAlbumById(id, { name, year }) {
@@ -66,6 +68,22 @@ class AlbumsService {
     if (!result.rows.length) {
       throw new NotFoundError('Gagal memperbarui album. Id tidak ditemukan');
     }
+    await this._cacheService.delete(`album:${id}`);
+  }
+
+  async editAlbumCover(id, cover) {
+    const updatedAt = new Date().toISOString();
+    const query = {
+      text: 'UPDATE album SET updated_at = $1, cover = $2 WHERE id = $3 RETURNING id',
+      values: [updatedAt, cover, id],
+    };
+
+    const result = await this._pool.query(query);
+
+    if (!result.rows.length) {
+      throw new NotFoundError('Gagal memperbarui album. Id tidak ditemukan');
+    }
+    await this._cacheService.delete(`album:${id}`);
   }
 
   async deleteAlbumById(id) {
@@ -79,76 +97,84 @@ class AlbumsService {
     if (!result.rows.length) {
       throw new NotFoundError('album gagal dihapus. Id tidak ditemukan');
     }
+    await this._cacheService.delete(`album:${id}`);
   }
-  // lagu
 
-  async addSongs({
-    title, year, performer, genre, duration,
-  }) {
-    const id = nanoid(16);
-    const createdAt = new Date().toISOString();
-    const updatedAt = createdAt;
-
-    const query = {
-      text: 'INSERT INTO songs VALUES($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id',
-      values: [id, title, year, performer, genre, duration, createdAt, updatedAt],
+  async addLike(name, id) {
+    const idLike = `likecount-${nanoid(16)}`;
+    const checkQuery = {
+      text: 'SELECT * FROM likecount WHERE user_id = $1 AND album_id = $2',
+      values: [name, id],
     };
 
-    const result = await this._pool.query(query);
+    const checkResult = await this._pool.query(checkQuery);
 
-    if (!result.rows[0].id) {
-      throw new InvariantError('Lagu gagal ditambahkan');
+    let likeMech;
+    if (!checkResult.rows.length) {
+      likeMech = {
+        text: 'INSERT INTO likecount VALUES($1, $2, $3) RETURNING id',
+        values: [idLike, name, id],
+      };
     }
+    if (checkResult.rows.length) {
+      likeMech = {
+        text: 'DELETE FROM likecount WHERE user_id = $1 RETURNING id',
+        values: [name],
+      };
+    }
+
+    const result = await this._pool.query(likeMech);
+    await this._cacheService.delete(`like:${id}`);
 
     return result.rows[0].id;
   }
 
-  async getSongs() {
-    const result = await this._pool.query('SELECT * FROM songs');
-    return result.rows.map(mapDBToModelSong);
-  }
+  async getLike(id) {
+    try {
+      const status = true;
+      const result = await this._cacheService.get(`like:${id}`);
+      const convResult = JSON.parse(result);
+      const finalResult = { convResult, status };
+      return finalResult;
+    } catch (error) {
+      const status = false;
+      const query = {
+        text: 'SELECT COUNT(id) FROM likecount WHERE album_id = $1',
+        values: [id],
+      };
 
-  async getSongById(id) {
-    const query = {
-      text: 'SELECT * FROM songs WHERE id = $1',
-      values: [id],
-    };
+      const result = await this._pool.query(query);
 
-    const result = await this._pool.query(query);
+      if (!result) {
+        throw new InvariantError('like gagal didapatkan');
+      }
 
-    if (!result.rows.length) {
-      throw new NotFoundError('Lagu tidak ditemukan');
-    }
+      const convResult = parseInt(result.rows[0].count);
+      const finalResult = { convResult, status };
 
-    return result.rows.map(mapDBToModelSong)[0];
-  }
-
-  async editSongById(id, {
-    title, year, performer, genre, duration,
-  }) {
-    const updatedAt = new Date().toISOString();
-    const query = {
-      text: 'UPDATE songs SET title = $1, year = $2, performer = $3, genre = $4, duration = $5, updated_at = $6 WHERE id = $7 RETURNING id',
-      values: [title, year, performer, genre, duration, updatedAt, id],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (!result.rows.length) {
-      throw new NotFoundError('Gagal memperbarui lagu. Id tidak ditemukan');
+      await this._cacheService.set(`like:${id}`, JSON.parse(result.rows[0].count));
+      return finalResult;
     }
   }
 
-  async deleteSongById(id) {
-    const query = {
-      text: 'DELETE FROM songs WHERE id = $1 RETURNING id',
-      values: [id],
-    };
-
-    const result = await this._pool.query(query);
-
-    if (!result.rows.length) {
-      throw new NotFoundError('Lagu gagal dihapus. Id tidak ditemukan');
+  async verifyAlbumAccess(albumId, owner) {
+    try {
+      const query = {
+        text: 'SELECT * FROM album WHERE id = $1',
+        values: [albumId],
+      };
+      const result = await this._pool.query(query);
+      if (!result.rows.length) {
+        throw new NotFoundError('Album tidak ditemukan');
+      }
+      const album = result.rows[0];
+      if (album.owner !== owner) {
+        throw new AuthorizationError('Anda tidak berhak mengakses resource ini');
+      }
+    } catch (error) {
+      if (error instanceof NotFoundError) {
+        throw error;
+      }
     }
   }
 }
