@@ -1,5 +1,3 @@
-const ClientError = require('../../exceptions/ClientError');
-
 class UploadsHandler {
   constructor(storageService, albumService, validator) {
     this._storageService = storageService;
@@ -10,43 +8,20 @@ class UploadsHandler {
   }
 
   async postUploadImageHandler(request, h) {
-    try {
-      const { cover } = request.payload;
-      this._validator.validateImageHeaders(cover.hapi.headers);
-      const { id } = request.params;
+    const { cover } = request.payload;
+    this._validator.validateImageHeaders(cover.hapi.headers);
+    const { id } = request.params;
 
-      const filename = await this._storageService.writeFile(cover, cover.hapi);
-      const address = `http://${process.env.HOST}:${process.env.PORT}/upload/images/${filename}`;
-      await this._albumService.editAlbumCover(id, address);
-      console.log(typeof address);
+    const filename = await this._storageService.writeFile(cover, cover.hapi);
+    const address = `${request.headers['x-forwarded-proto'] || request.server.info.protocol}://${request.info.host}/upload/images/${filename}`;
+    await this._albumService.editAlbumCover(id, address);
 
-      const response = h.response({
-        status: 'success',
-        message: {
-          address,
-        },
-      });
-      response.code(201);
-      return response;
-    } catch (error) {
-      if (error instanceof ClientError) {
-        const response = h.response({
-          status: 'fail',
-          message: error.message,
-        });
-        response.code(error.statusCode);
-        return response;
-      }
-
-      // Server ERROR!
-      const response = h.response({
-        status: 'error',
-        message: 'Maaf, terjadi kegagalan pada server kami.',
-      });
-      response.code(500);
-      console.error(error);
-      return response;
-    }
+    const response = h.response({
+      status: 'success',
+      message: address,
+    });
+    response.code(201);
+    return response;
   }
 }
 

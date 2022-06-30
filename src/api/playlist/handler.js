@@ -1,4 +1,5 @@
 const ClientError = require('../../exceptions/ClientError');
+const NotFoundError = require('../../exceptions/NotFoundError');
 
 class PlaylistHandler {
   constructor(service, validator) {
@@ -124,6 +125,15 @@ class PlaylistHandler {
         return response;
       }
 
+      if (error instanceof NotFoundError) {
+        const response = h.response({
+          status: 'fail',
+          message: error.message,
+        });
+        response.code(error.statusCode);
+        return response;
+      }
+
       // Server ERROR!
       const response = h.response({
         status: 'error',
@@ -144,7 +154,6 @@ class PlaylistHandler {
 
       const playlists = await this._service.getPlaylistbyId(playlistId);
       const user = await this._service.getUsers(credentialId);
-      console.log(user);
       const song = await this._service.getSongsFromPlaylist(playlistId);
       const playlistsongs = {
         id: playlists.id,

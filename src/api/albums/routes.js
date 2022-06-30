@@ -25,7 +25,7 @@ const routes = (handler) => [
   {
     method: 'DELETE',
     path: '/albums/{id}',
-    handler: handler.deleteAlbbumByIdHandler,
+    handler: handler.deleteAlbumByIdHandler,
   },
   {
     method: 'POST',
@@ -41,7 +41,7 @@ const routes = (handler) => [
     handler: handler.getLikeAlbumHandler,
     options: {
       cache: {
-        expiresIn: 3000 * 1000,
+        expiresIn: 1800 * 1000,
         privacy: 'private',
       },
     },

@@ -100,7 +100,7 @@ class AlbumsService {
     await this._cacheService.delete(`album:${id}`);
   }
 
-  async postLike(name, id) {
+  async addLike(name, id) {
     const idLike = `likecount-${nanoid(16)}`;
     const checkQuery = {
       text: 'SELECT * FROM likecount WHERE user_id = $1 AND album_id = $2',
@@ -108,7 +108,6 @@ class AlbumsService {
     };
 
     const checkResult = await this._pool.query(checkQuery);
-    console.log(checkResult.rows[0]);
 
     let likeMech;
     if (!checkResult.rows.length) {
@@ -132,23 +131,29 @@ class AlbumsService {
 
   async getLike(id) {
     try {
+      const status = true;
       const result = await this._cacheService.get(`like:${id}`);
-      return JSON.parseInt(result);
+      const convResult = JSON.parse(result);
+      const finalResult = { convResult, status };
+      return finalResult;
     } catch (error) {
+      const status = false;
       const query = {
         text: 'SELECT COUNT(id) FROM likecount WHERE album_id = $1',
         values: [id],
       };
 
       const result = await this._pool.query(query);
-      console.log(result.rows[0].count);
 
       if (!result) {
         throw new InvariantError('like gagal didapatkan');
       }
 
-      await this._cacheService.set(`like:${id}`, JSON.stringify(result.rows[0].count));
-      return parseInt(result.rows[0].count);
+      const convResult = parseInt(result.rows[0].count);
+      const finalResult = { convResult, status };
+
+      await this._cacheService.set(`like:${id}`, JSON.parse(result.rows[0].count));
+      return finalResult;
     }
   }
 
