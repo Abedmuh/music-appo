@@ -1,4 +1,4 @@
-// im delete smth here
+// im delete
 require("dotenv").config();
 
 const Hapi = require("@hapi/hapi");
